@@ -9,20 +9,20 @@ def delete(filename: str) -> None:
     os.remove(path)
 
 
-def merge(pdf_tuple: list) -> str:
+def merge(pdf_list: list) -> str:
     merger = PdfMerger()
 
-    for pdf in pdf_tuple:
-        merger.append(pdf)
+    for pdf in pdf_list:
+        merger.append(f"PDF Input/{pdf}")
 
-    merger.write("PDF Output/merged-pdf.pdf")
+    merger.write(f"PDF Output/merged-{pdf_list[0]}")
     merger.close()
 
-    return "PDF Output/merged-pdf.pdf"
+    return f"PDF Output/merged-{pdf_list[0]}"
 
 
 def split(pdf: str) -> list:
-    reader = PdfReader(pdf)
+    reader = PdfReader(f"PDF Input/{pdf}")
 
     file_names = []
 
@@ -31,7 +31,7 @@ def split(pdf: str) -> list:
         current_page = reader.getPage(i)
         writer.addPage(current_page)
 
-        output_filename = f"PDF Output/split-page-{i + 1}.pdf"
+        output_filename = f"PDF Output/split-page-{i + 1}-{pdf}"
         file_names.append(output_filename)
         with open(output_filename, "wb") as out:
             writer.write(out)
@@ -41,8 +41,8 @@ def split(pdf: str) -> list:
 
 def docx_convert(docx_file: str) -> str:
     pythoncom.CoInitialize()
-    convert(docx_file, "PDF Output/converted-pdf.pdf")
+    convert(f"PDF Input/{docx_file}", f"PDF Output/converted-{docx_file[:-5]}.pdf")
 
-    return "PDF Output/converted-pdf.pdf"
+    return f"PDF Output/converted-{docx_file[:-5]}.pdf"
 
 

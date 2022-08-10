@@ -20,14 +20,13 @@ user_files = {}  # для хранения списка загруженных �
 
 def start(update: Update, context: CallbackContext) -> int:
     """Даёт пользователю выбрать действие с файлом"""
-    reply_keyboard = [['Объединить', 'Разделить'], ["Конвертировать DOCX в PDF"]]
 
     update.message.reply_text(
         'Выберите действие с PDF/DOCX\n'
         'Для отмены введите /cancel',
         reply_markup=ReplyKeyboardMarkup(
-            reply_keyboard, one_time_keyboard=True, input_field_placeholder='Выберите действие с PDF/DOCX',
-            resize_keyboard=True
+            [['Объединить', 'Разделить'], ["Конвертировать DOCX в PDF"]], one_time_keyboard=True,
+            input_field_placeholder='Выберите действие с PDF/DOCX', resize_keyboard=True
         ),
     )
 
@@ -62,6 +61,14 @@ def choice(update: Update, context: CallbackContext) -> int:
             )
             return CONVERT
 
+        case "/cancel":
+            update.message.reply_text(
+                'Вы отменили выполнение действия с pdf.\nЧтобы начать заново введите /start',
+                reply_markup=ReplyKeyboardRemove()
+            )
+
+            return ConversationHandler.END
+
         case _:
             update.message.reply_text(
                 'Действие не распознано, выберите заново\n'
@@ -73,19 +80,24 @@ def choice(update: Update, context: CallbackContext) -> int:
 def split(update: Update, context: CallbackContext) -> int:
     """Принимает ПДФ, разделяет его по страницам. Возвращает пользователю страницы и удаляет за собой файлы."""
     pdf_file = update.message.document.get_file()
-    pdf_file.download(f'PDF Input/user_pdf_{update.message.document.file_unique_id}.pdf')
+    pdf_file.download(f'PDF Input/user-pdf-{update.message.document.file_unique_id}.pdf')
 
-    update.message.reply_text('Ваши разделённые файлы:')
+    update.message.reply_text('Ваши разделённые файлы:',
+                              reply_markup=ReplyKeyboardMarkup(
+                                  [['Объединить', 'Разделить'], ["Конвертировать DOCX в PDF"]], one_time_keyboard=True,
+                                  input_field_placeholder='Выберите действие с PDF/DOCX', resize_keyboard=True
+                              ),
+                              )
 
-    list_of_pdfs = pdf_manager.split(f'PDF Input/user_pdf_{update.message.document.file_unique_id}.pdf')
+    list_of_pdfs = pdf_manager.split(f'user-pdf-{update.message.document.file_unique_id}.pdf')
 
     for file in list_of_pdfs:
         update.message.reply_document(document=open(file, 'rb'))
         pdf_manager.delete(file)
 
-    pdf_manager.delete(f'PDF Input/user_pdf_{update.message.document.file_unique_id}.pdf')
+    pdf_manager.delete(f'PDF Input/user-pdf-{update.message.document.file_unique_id}.pdf')
 
-    return ConversationHandler.END
+    return CHOICE
 
 
 def merge(update: Update, context: CallbackContext) -> int:
@@ -105,29 +117,35 @@ def merge(update: Update, context: CallbackContext) -> int:
 
     # Загрузил ли пользователь все нужные файлы для объединения
     if user_files[str(update.message.chat.id)]["all_files"]:
-        update.message.reply_text('Ваш объединённый файл:')
+        update.message.reply_text('Ваш объединённый файл:',
+                                  reply_markup=ReplyKeyboardMarkup(
+                                      [['Объединить', 'Разделить'], ["Конвертировать DOCX в PDF"]],
+                                      one_time_keyboard=True,
+                                      input_field_placeholder='Выберите действие с PDF/DOCX', resize_keyboard=True
+                                  ),
+                                  )
         file = pdf_manager.merge(user_files[str(update.message.chat.id)]["filenames"])
         update.message.reply_document(document=open(file, 'rb'))
 
         # Удаление файлов
         pdf_manager.delete(file)
         for file in user_files[str(update.message.chat.id)]["filenames"]:
-            pdf_manager.delete(file)
+            pdf_manager.delete(f"PDF Input/{file}")
 
         # Стираем список загруженных пользователем файлов
         user_files.update([(str(update.message.chat.id), {"all_files": False, "filenames": []})])
         logger.info(f"user_files update: {user_files}")
 
-        return ConversationHandler.END
+        return CHOICE
 
     else:
         # Загрузка файла
         pdf_file = update.message.document.get_file()
-        pdf_file.download(f'PDF Input/user_pdf_{update.message.document.file_unique_id}.pdf')
+        pdf_file.download(f'PDF Input/user-pdf-{update.message.document.file_unique_id}.pdf')
 
         # Добавление названия файла в список загруженных пользователем файлов
         filenames_list = user_files[str(update.message.chat.id)]["filenames"]
-        filenames_list.append(f'PDF Input/user_pdf_{update.message.document.file_unique_id}.pdf')
+        filenames_list.append(f'user-pdf-{update.message.document.file_unique_id}.pdf')
         user_files.update([(str(update.message.chat.id), {"all_files": False, "filenames": filenames_list})])
         logger.info(f"user_files update: {user_files}")
 
@@ -138,18 +156,23 @@ def convert(update: Update, context: CallbackContext) -> int:
     """Принимает docx, конвертирует его в PDF и отправляет обратно пользователю"""
     docx_file = update.message.document.get_file()
     file_unique_id = update.message.document.file_unique_id
-    docx_file.download(f'PDF Input/user_docx_{file_unique_id}.docx')
+    docx_file.download(f'PDF Input/user-docx-{file_unique_id}.docx')
 
-    update.message.reply_text('Ваш конвертированный файл:')
+    update.message.reply_text('Ваш конвертированный файл:',
+                              reply_markup=ReplyKeyboardMarkup(
+                                  [['Объединить', 'Разделить'], ["Конвертировать DOCX в PDF"]], one_time_keyboard=True,
+                                  input_field_placeholder='Выберите действие с PDF/DOCX', resize_keyboard=True
+                              ),
+                              )
 
-    converted_pdf_file = pdf_manager.docx_convert(f'PDF Input/user_docx_{file_unique_id}.docx')
+    converted_pdf_file = pdf_manager.docx_convert(f'user-docx-{file_unique_id}.docx')
 
     update.message.reply_document(document=open(converted_pdf_file, 'rb'))
     pdf_manager.delete(converted_pdf_file)
 
-    pdf_manager.delete(f'PDF Input/user_docx_{file_unique_id}.docx')
+    pdf_manager.delete(f'PDF Input/user-docx-{file_unique_id}.docx')
 
-    return ConversationHandler.END
+    return CHOICE
 
 
 def cancel(update: Update, context: CallbackContext) -> int:
