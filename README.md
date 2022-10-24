@@ -1,2 +1,4 @@
 # PDF-Telegram-Bot
-Telegram bot for working with PDF/DOCX files
+Телеграм бот для работы с PDF и DOCX файлами.
+
+Может разделять/объединять PDF файлы и конвертировать DOCX в PDF.
